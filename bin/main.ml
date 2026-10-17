@@ -55,9 +55,23 @@ let () =
         Printf.eprintf "lexer error: %s\n" msg;
         exit 1
   in
+  if stage = Lex then (
+    List.iter (fun t -> print_endline (Lexer.string_of_token t)) tokens;
+    exit 0);
+  let ast =
+    match Parser.parse_program tokens with
+    | ast -> ast
+    | exception Parser.Parse_error msg ->
+        Printf.eprintf "parse error: %s\n" msg;
+        exit 1
+  in
   match stage with
-  | Lex ->
-      List.iter (fun t -> print_endline (Lexer.string_of_token t)) tokens
-  | Parse | Codegen | Assembly | Full ->
-      prerr_endline "error: only lexing (--lex) is implemented so far";
+  | Lex -> ()
+  | Parse ->
+      let (Ast.Program (Ast.Function (name, Ast.Return (Ast.Constant n)))) =
+        ast
+      in
+      Printf.printf "Program(Function(%s, Return(Constant(%d))))\n" name n
+  | Codegen | Assembly | Full ->
+      prerr_endline "error: only --lex and --parse are implemented so far";
       exit 1
