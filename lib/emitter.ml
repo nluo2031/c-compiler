@@ -1,9 +1,3 @@
-(* Code emitter: turns an Assembly.program into AT&T-syntax x86-64 text.
-
-   On macOS, function names get a leading underscore (main -> _main).
-   On Linux, we instead add a .note.GNU-stack section so the stack
-   isn't marked executable. *)
-
 let show_label (macos : bool) (name : string) : string =
   if macos then "_" ^ name else name
 
