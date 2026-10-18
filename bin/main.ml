@@ -4,10 +4,10 @@
 
    Steps:
      1. Preprocess: gcc -E -P file.c -o file.i
-     2. Compile file.i -> file.s   (only lexing is implemented so far)
+     2. Compile file.i -> file.s   (lexer, parser, codegen, emitter)
      3. Assemble + link: gcc file.s -o file
 
-   --lex stops after lexing and writes no output files. *)
+   --lex / --parse / --codegen stop after that stage and write no files. *)
 
 open Compiler
 
@@ -40,12 +40,21 @@ let run_cmd cmd =
     Printf.eprintf "command failed (exit %d): %s\n" code cmd;
     exit 1)
 
+let is_macos =
+  let ic = Unix.open_process_in "uname -s" in
+  let os = In_channel.input_all ic in
+  ignore (Unix.close_process_in ic);
+  String.trim os = "Darwin"
+
+(* The book targets x86-64; on an ARM Mac, build x86-64 code (runs via Rosetta). *)
+let arch_flag = if is_macos then "-arch x86_64" else ""
+
 let () =
   let stage, src = parse_args () in
   let base = Filename.remove_extension src in
   let preprocessed = base ^ ".i" in
   run_cmd
-    (Printf.sprintf "gcc -E -P %s -o %s" (Filename.quote src)
+    (Printf.sprintf "gcc %s -E -P %s -o %s" arch_flag (Filename.quote src)
        (Filename.quote preprocessed));
   let tokens =
     match Lexer.lex_file preprocessed with
@@ -65,13 +74,16 @@ let () =
         Printf.eprintf "parse error: %s\n" msg;
         exit 1
   in
-  match stage with
-  | Lex -> ()
-  | Parse ->
-      let (Ast.Program (Ast.Function (name, Ast.Return (Ast.Constant n)))) =
-        ast
-      in
-      Printf.printf "Program(Function(%s, Return(Constant(%d))))\n" name n
-  | Codegen | Assembly | Full ->
-      prerr_endline "error: only --lex and --parse are implemented so far";
-      exit 1
+  if stage = Parse then (
+    print_endline (Parser.pp_program ast);
+    exit 0);
+  let asm = Assemblyconverter.convert_program ast in
+  if stage = Codegen then exit 0;
+  let assembly_file = base ^ ".s" in
+  Out_channel.with_open_bin assembly_file (fun oc ->
+      output_string oc (Emitter.emit_program is_macos asm));
+  if stage = Full then (
+    run_cmd
+      (Printf.sprintf "gcc %s %s -o %s" arch_flag (Filename.quote assembly_file)
+         (Filename.quote base));
+    Sys.remove assembly_file)
