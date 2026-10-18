@@ -57,3 +57,35 @@ let parse_program (token_list : Lexer.token list) : Ast.program =
         (Parse_error
            (Printf.sprintf "unexpected %s after end of function"
               (Lexer.string_of_token t)))
+
+(* ---------- Pretty-printer ---------- *)
+
+(* Two spaces per indentation level. *)
+let indent (level : int) : string = String.make (2 * level) ' '
+
+(* Each function returns a string whose first line has no indentation
+   (the caller has already positioned it), and whose later lines are
+   indented relative to `level`. *)
+
+let pp_exp (_level : int) (e : Ast.exp) : string =
+  match e with
+  | Ast.Constant n -> Printf.sprintf "Constant(%d)" n
+
+let pp_statement (level : int) (s : Ast.statement) : string =
+  match s with
+  | Ast.Return e ->
+      Printf.sprintf "Return(\n%s%s\n%s)"
+        (indent (level + 1)) (pp_exp (level + 1) e)
+        (indent level)
+
+let pp_function (level : int) (f : Ast.function_definition) : string =
+  match f with
+  | Ast.Function (name, body) ->
+      Printf.sprintf "Function(\n%sname=%S,\n%sbody=%s\n%s)"
+        (indent (level + 1)) name
+        (indent (level + 1)) (pp_statement (level + 1) body)
+        (indent level)
+
+let pp_program (p : Ast.program) : string =
+  match p with
+  | Ast.Program f -> Printf.sprintf "Program(\n%s%s\n)" (indent 1) (pp_function 1 f)
