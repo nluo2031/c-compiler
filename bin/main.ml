@@ -1,20 +1,20 @@
 (* Compiler driver.
 
-   Usage: main.exe [--lex | --parse | --codegen | -S] path/to/file.c
+   Usage: main.exe [--lex | --parse | --tacky | --codegen | -S] path/to/file.c
 
    Steps:
      1. Preprocess: gcc -E -P file.c -o file.i
      2. Compile file.i -> file.s   (lexer, parser, codegen, emitter)
      3. Assemble + link: gcc file.s -o file
 
-   --lex / --parse / --codegen stop after that stage and write no files. *)
+   --lex / --parse / --tacky / --codegen stop after that stage and write no files. *)
 
 open Compiler
 
-type stage = Lex | Parse | Codegen | Assembly | Full
+type stage = Lex | Parse | Tacky | Codegen | Assembly | Full
 
 let usage () =
-  prerr_endline "usage: main.exe [--lex | --parse | --codegen | -S] <file.c>";
+  prerr_endline "usage: main.exe [--lex | --parse | --tacky | --codegen | -S] <file.c>";
   exit 2
 
 let parse_args () =
@@ -25,6 +25,7 @@ let parse_args () =
         match arg with
         | "--lex" -> stage := Lex
         | "--parse" -> stage := Parse
+        | "--tacky" -> stage := Tacky
         | "--codegen" -> stage := Codegen
         | "-S" -> stage := Assembly
         | s when String.length s > 0 && s.[0] = '-' ->
@@ -76,6 +77,10 @@ let () =
   in
   if stage = Parse then (
     print_endline (Parser.pp_program ast);
+    exit 0);
+  let tacky = Tacky_convertor.program_conversion ast in
+  if stage = Tacky then (
+    print_endline (Tacky_convertor.pp_program tacky);
     exit 0);
   let asm = Assemblyconverter.convert_program ast in
   if stage = Codegen then exit 0;
