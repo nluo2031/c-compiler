@@ -9,6 +9,10 @@ type token =
   | OpenBrace (* { *)
   | CloseBrace (* } *)
   | Semicolon (* ; *)
+  | Tilde (*~*)
+  | Hyphen(*-*)
+  | DoubleHyphen (*--*)
+
 
 exception Lex_error of string
 
@@ -23,6 +27,10 @@ let string_of_token = function
   | OpenBrace -> "{"
   | CloseBrace -> "}"
   | Semicolon -> ";"
+  | Tilde -> "~"
+  | Hyphen -> "-"
+  | DoubleHyphen -> "--"
+
 
 let is_digit c = match c with '0' .. '9' -> true | _ -> false
 
@@ -61,6 +69,9 @@ let lex (s : string) : token list =
       | '{' -> go (i + 1) (OpenBrace :: acc)
       | '}' -> go (i + 1) (CloseBrace :: acc)
       | ';' -> go (i + 1) (Semicolon :: acc)
+      | '~' -> go (i + 1) (Tilde :: acc)
+      | '-' when i + 1 < len && s.[i + 1] = '-' -> go (i + 2) (DoubleHyphen :: acc)
+      | '-' -> go (i + 1) (Hyphen :: acc)
       | c when is_ident_start c ->
           let j = scan_while is_ident_char s i in
           let word = String.sub s i (j - i) in

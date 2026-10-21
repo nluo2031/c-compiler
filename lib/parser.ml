@@ -13,14 +13,22 @@ let expect (expected :Lexer.token) (tokens : Lexer.token list ref) : unit =
          (Printf.sprintf "expected %s but found %s"
             (Lexer.string_of_token expected)
             (Lexer.string_of_token actual))) 
-let parse_exp (tokens:Lexer.token list ref) : Ast.exp=
+
+let rec parse_exp (tokens:Lexer.token list ref) : Ast.exp=
     match take_token tokens with
       | Lexer.Constant n -> Ast.Constant n
+      | Lexer.Tilde -> Ast.Unary(Ast.Complement, parse_exp tokens)
+      |Lexer.Hyphen -> Ast.Unary(Ast.Negate, parse_exp tokens)
+      | Lexer.OpenParen ->
+          let inner = parse_exp tokens in
+          expect Lexer.CloseParen tokens;
+          inner
       | t ->
         raise
           (Parse_error
-            (Printf.sprintf "expected a constant but found %s"
+            (Printf.sprintf "expected an expression but found %s"
                 (Lexer.string_of_token t)))
+
 let parse_statement (tokens : Lexer.token list ref) : Ast.statement =
   expect Lexer.KwReturn tokens;
   let return_val = parse_exp tokens in
@@ -67,9 +75,12 @@ let indent (level : int) : string = String.make (2 * level) ' '
    (the caller has already positioned it), and whose later lines are
    indented relative to `level`. *)
 
-let pp_exp (_level : int) (e : Ast.exp) : string =
+let rec pp_exp (level : int) (e : Ast.exp) : string =
   match e with
   | Ast.Constant n -> Printf.sprintf "Constant(%d)" n
+  | Ast.Unary (op, inner) ->
+      let op_name = match op with Ast.Complement -> "Complement" | Ast.Negate -> "Negate" in
+      Printf.sprintf "Unary(%s, %s)" op_name (pp_exp level inner)
 
 let pp_statement (level : int) (s : Ast.statement) : string =
   match s with
