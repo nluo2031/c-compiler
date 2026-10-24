@@ -82,7 +82,9 @@ let () =
   if stage = Tacky then (
     print_endline (Tacky_convertor.pp_program tacky);
     exit 0);
-  let asm = Assemblyconverter.convert_program ast in
+  let asm = Assemblyconverter.convert_program tacky in
+  let asm, stack_size = Psuedoregister_replace.replace_program asm in
+  let asm = Fixup.fix_program stack_size asm in
   if stage = Codegen then exit 0;
   let assembly_file = base ^ ".s" in
   Out_channel.with_open_bin assembly_file (fun oc ->
