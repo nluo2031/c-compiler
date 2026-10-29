@@ -2,6 +2,13 @@ let convert_operator (op:Ast.unary_operator):Tacky.unary_operator=
     match op with
     | Ast.Complement->Tacky.Complement
     |Ast.Negate->Tacky.Negate
+let convert_binop (op:Ast.binary_operator):Tacky.binary_operator=
+    match op with
+    |Ast.Add->Tacky.Add
+    |Ast.Subtract->Tacky.Subtract
+    |Ast.Multiply->Tacky.Multiply
+    |Ast.Divide->Tacky.Divide
+    |Ast.Remainder->Tacky.Remainder
 let counter =ref 0
 let make_temp ():string=
   incr counter;
@@ -13,6 +20,12 @@ let rec expression_conversion (exp:Ast.exp):Tacky.instruction list*Tacky.tacky_v
     let (inner_instrs, src) = expression_conversion inner in
     let dst = Tacky.Var (make_temp ()) in
     (inner_instrs @ [Tacky.Unary (convert_operator op, src, dst)], dst)
+  |Ast.Binary (op,left,right)->
+    (* left must be evaluated before right *)
+    let (left_instrs, src1) = expression_conversion left in
+    let (right_instrs, src2) = expression_conversion right in
+    let dst = Tacky.Var (make_temp ()) in
+    (left_instrs @ right_instrs @ [Tacky.Binary (convert_binop op, src1, src2, dst)], dst)
 
 let statement_conversion (stmt:Ast.statement):Tacky.instruction list=
   match stmt with
@@ -29,6 +42,13 @@ let pp_operator (op:Tacky.unary_operator):string=
   match op with
   |Tacky.Complement->"Complement"
   |Tacky.Negate->"Negate"
+let pp_binop (op:Tacky.binary_operator):string=
+  match op with
+  |Tacky.Add->"Add"
+  |Tacky.Subtract->"Subtract"
+  |Tacky.Multiply->"Multiply"
+  |Tacky.Divide->"Divide"
+  |Tacky.Remainder->"Remainder"
 let pp_val (v:Tacky.tacky_val):string=
   match v with
   |Tacky.Constant n->"Constant "^string_of_int n
@@ -38,6 +58,8 @@ let pp_instruction (instr:Tacky.instruction):string=
   |Tacky.Return v->Printf.sprintf "Return(%s)" (pp_val v)
   |Tacky.Unary (op,src,dst)->
     Printf.sprintf "Unary(%s, %s, %s)" (pp_operator op) (pp_val src) (pp_val dst)
+  |Tacky.Binary (op,src1,src2,dst)->
+    Printf.sprintf "Binary(%s, %s, %s, %s)" (pp_binop op) (pp_val src1) (pp_val src2) (pp_val dst)
 let pp_program (prog:Tacky.program):string=
   match prog with
   |Tacky.Program (Tacky.Function (_, instrs))->

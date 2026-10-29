@@ -16,6 +16,9 @@ let replace_instruction(is:Assembly.instruction):Assembly.instruction=
   match is with
   |Assembly.Mov (src,dst)->Assembly.Mov (replace_operand src, replace_operand dst)
   |Assembly.Unary(un,op)->Assembly.Unary(un,replace_operand op)
+  |Assembly.Binary(bin,src,dst)->Assembly.Binary(bin,replace_operand src,replace_operand dst)
+  |Assembly.Idiv op->Assembly.Idiv (replace_operand op)
+  |Assembly.Cdq->Assembly.Cdq
   |Assembly.AllocateStack n->Assembly.AllocateStack n
   |Assembly.Ret->Assembly.Ret
 

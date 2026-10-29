@@ -12,6 +12,10 @@ type token =
   | Tilde (*~*)
   | Hyphen(*-*)
   | DoubleHyphen (*--*)
+  | Plus (*+*)
+  | Times(***)
+  | FwSlash (*/*)
+  | Mod (*%*)
 
 
 exception Lex_error of string
@@ -30,6 +34,10 @@ let string_of_token = function
   | Tilde -> "~"
   | Hyphen -> "-"
   | DoubleHyphen -> "--"
+  | Plus -> "+"
+  | Times -> "*"
+  | FwSlash -> "/"
+  | Mod -> "%"
 
 
 let is_digit c = match c with '0' .. '9' -> true | _ -> false
@@ -70,6 +78,10 @@ let lex (s : string) : token list =
       | '}' -> go (i + 1) (CloseBrace :: acc)
       | ';' -> go (i + 1) (Semicolon :: acc)
       | '~' -> go (i + 1) (Tilde :: acc)
+      | '+' -> go (i+1) (Plus::acc)
+      | '*' -> go (i+1) (Times::acc)
+      | '/' -> go (i+1) (FwSlash::acc)
+      | '%' -> go (i+1) (Mod :: acc)
       | '-' when i + 1 < len && s.[i + 1] = '-' -> go (i + 2) (DoubleHyphen :: acc)
       | '-' -> go (i + 1) (Hyphen :: acc)
       | c when is_ident_start c ->
