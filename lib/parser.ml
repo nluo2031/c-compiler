@@ -5,6 +5,25 @@ let take_token (tokens: Lexer.token list ref) :Lexer.token=
   | t :: rest ->
       tokens := rest;
       t
+let peek (tokens:Lexer.token list ref): Lexer.token option=
+    match !tokens with
+    | [] -> None
+    | t :: _ -> Some t
+let priority (token: Lexer.token): int option=
+    match token with
+    | Lexer.Times | Lexer.FwSlash | Lexer.Mod -> Some 50
+    | Lexer.Plus | Lexer.Hyphen -> Some 45
+    | _ -> None
+let binop_of_token (token : Lexer.token) : Ast.binary_operator =
+  match token with
+  | Lexer.Plus -> Ast.Add
+  | Lexer.Times -> Ast.Multiply
+  | Lexer.FwSlash -> Ast.Divide
+  | Lexer.Mod -> Ast.Remainder
+  | Lexer.Hyphen -> Ast.Subtract
+  | _ -> raise (Parse_error "expected arithmetic")
+
+
 let expect (expected :Lexer.token) (tokens : Lexer.token list ref) : unit =
   let actual = take_token tokens in
   if actual <> expected then
@@ -14,13 +33,13 @@ let expect (expected :Lexer.token) (tokens : Lexer.token list ref) : unit =
             (Lexer.string_of_token expected)
             (Lexer.string_of_token actual))) 
 
-let rec parse_exp (tokens:Lexer.token list ref) : Ast.exp=
+let rec parse_factor (tokens:Lexer.token list ref) : Ast.exp=
     match take_token tokens with
       | Lexer.Constant n -> Ast.Constant n
-      | Lexer.Tilde -> Ast.Unary(Ast.Complement, parse_exp tokens)
-      |Lexer.Hyphen -> Ast.Unary(Ast.Negate, parse_exp tokens)
+      | Lexer.Tilde -> Ast.Unary(Ast.Complement, parse_factor tokens)
+      |Lexer.Hyphen -> Ast.Unary(Ast.Negate, parse_factor tokens)
       | Lexer.OpenParen ->
-          let inner = parse_exp tokens in
+          let inner = parse_exp tokens 0 in
           expect Lexer.CloseParen tokens;
           inner
       | t ->
@@ -28,10 +47,29 @@ let rec parse_exp (tokens:Lexer.token list ref) : Ast.exp=
           (Parse_error
             (Printf.sprintf "expected an expression but found %s"
                 (Lexer.string_of_token t)))
+and parse_exp (tokens:Lexer.token list ref) (min_prec:int) : Ast.exp=
+        let rec loop left =
+          match peek tokens with
+           | Some t ->
+              (match priority t with
+              | Some prec when prec >= min_prec ->
+                let _ = take_token tokens in
+                let op = binop_of_token t in
+                let right = parse_exp tokens (prec + 1) in
+                loop (Ast.Binary (op, left, right))
+              | _ -> left)
+            | None -> left
+          in
+            loop (parse_factor tokens)
+
+
+
+
+
 
 let parse_statement (tokens : Lexer.token list ref) : Ast.statement =
   expect Lexer.KwReturn tokens;
-  let return_val = parse_exp tokens in
+  let return_val = parse_exp tokens 0 in
   expect Lexer.Semicolon tokens;
   Ast.Return return_val
 let parse_identifier (tokens : Lexer.token list ref) : string =
@@ -81,6 +119,16 @@ let rec pp_exp (level : int) (e : Ast.exp) : string =
   | Ast.Unary (op, inner) ->
       let op_name = match op with Ast.Complement -> "Complement" | Ast.Negate -> "Negate" in
       Printf.sprintf "Unary(%s, %s)" op_name (pp_exp level inner)
+  | Ast.Binary (op, left, right) ->
+      let op_name =
+        match op with
+        | Ast.Add -> "Add"
+        | Ast.Subtract -> "Subtract"
+        | Ast.Multiply -> "Multiply"
+        | Ast.Divide -> "Divide"
+        | Ast.Remainder -> "Remainder"
+      in
+      Printf.sprintf "Binary(%s, %s, %s)" op_name (pp_exp level left) (pp_exp level right)
 
 let pp_statement (level : int) (s : Ast.statement) : string =
   match s with
