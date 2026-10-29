@@ -13,6 +13,10 @@ let priority (token: Lexer.token): int option=
     match token with
     | Lexer.Times | Lexer.FwSlash | Lexer.Mod -> Some 50
     | Lexer.Plus | Lexer.Hyphen -> Some 45
+    | Lexer.DoubleLess | Lexer.DoubleGreater -> Some 40
+    | Lexer.Ampersand -> Some 25
+    | Lexer.Caret -> Some 20
+    | Lexer.Pipe -> Some 15
     | _ -> None
 let binop_of_token (token : Lexer.token) : Ast.binary_operator =
   match token with
@@ -21,6 +25,11 @@ let binop_of_token (token : Lexer.token) : Ast.binary_operator =
   | Lexer.FwSlash -> Ast.Divide
   | Lexer.Mod -> Ast.Remainder
   | Lexer.Hyphen -> Ast.Subtract
+  | Lexer.Ampersand -> Ast.BitwiseAnd
+  | Lexer.Pipe -> Ast.BitwiseOr
+  | Lexer.Caret -> Ast.BitwiseXor
+  | Lexer.DoubleLess -> Ast.LeftShift
+  | Lexer.DoubleGreater -> Ast.RightShift
   | _ -> raise (Parse_error "expected arithmetic")
 
 
@@ -127,6 +136,11 @@ let rec pp_exp (level : int) (e : Ast.exp) : string =
         | Ast.Multiply -> "Multiply"
         | Ast.Divide -> "Divide"
         | Ast.Remainder -> "Remainder"
+        | Ast.BitwiseAnd -> "BitwiseAnd"
+        | Ast.BitwiseOr -> "BitwiseOr"
+        | Ast.BitwiseXor -> "BitwiseXor"
+        | Ast.LeftShift -> "LeftShift"
+        | Ast.RightShift -> "RightShift"
       in
       Printf.sprintf "Binary(%s, %s, %s)" op_name (pp_exp level left) (pp_exp level right)
 

@@ -7,6 +7,11 @@ let convert_binary (b: Tacky.binary_operator):Assembly.binary_operator=
   | Tacky.Add->Assembly.Add
   | Tacky.Subtract->Assembly.Sub
   | Tacky.Multiply-> Assembly.Mult
+  | Tacky.BitwiseAnd -> Assembly.And
+  | Tacky.BitwiseOr -> Assembly.Or
+  | Tacky.BitwiseXor -> Assembly.Xor
+  | Tacky.LeftShift -> Assembly.Sal
+  | Tacky.RightShift -> Assembly.Sar
   | Tacky.Divide | Tacky.Remainder -> failwith "handled separately"
 
 let convert_unop (op : Tacky.unary_operator) : Assembly.unary_operator =

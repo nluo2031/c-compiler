@@ -5,6 +5,7 @@ let emit_operand (op : Assembly.operand) : string =
   match op with
   | Assembly.Imm n -> Printf.sprintf "$%d" n
   | Assembly.Reg Assembly.AX -> "%eax"
+  | Assembly.Reg Assembly.CX -> "%ecx"
   | Assembly.Reg Assembly.DX -> "%edx"
   | Assembly.Reg Assembly.R10 -> "%r10d"
   | Assembly.Reg Assembly.R11 -> "%r11d"
@@ -22,6 +23,11 @@ let emit_binop (op : Assembly.binary_operator) : string =
   | Assembly.Add -> "addl"
   | Assembly.Sub -> "subl"
   | Assembly.Mult -> "imull"
+  | Assembly.And -> "andl"
+  | Assembly.Or -> "orl"
+  | Assembly.Xor -> "xorl"
+  | Assembly.Sal -> "sall"
+  | Assembly.Sar -> "sarl"
 
 let emit_instruction (i : Assembly.instruction) : string =
   match i with
@@ -29,6 +35,9 @@ let emit_instruction (i : Assembly.instruction) : string =
       Printf.sprintf "\tmovl\t%s, %s\n" (emit_operand src) (emit_operand dst)
   | Assembly.Unary (op, operand) ->
       Printf.sprintf "\t%s\t%s\n" (emit_unop op) (emit_operand operand)
+  (* a shift count held in a register must be the 1-byte %cl *)
+  | Assembly.Binary ((Assembly.Sal | Assembly.Sar) as op, Assembly.Reg Assembly.CX, dst) ->
+      Printf.sprintf "\t%s\t%%cl, %s\n" (emit_binop op) (emit_operand dst)
   | Assembly.Binary (op, src, dst) ->
       Printf.sprintf "\t%s\t%s, %s\n" (emit_binop op) (emit_operand src) (emit_operand dst)
   | Assembly.Idiv operand -> Printf.sprintf "\tidivl\t%s\n" (emit_operand operand)

@@ -16,6 +16,11 @@ type token =
   | Times(***)
   | FwSlash (*/*)
   | Mod (*%*)
+  | Ampersand (*&*)
+  | Pipe (*|*)
+  | Caret (*^*)
+  | DoubleLess (*<<*)
+  | DoubleGreater (*>>*)
 
 
 exception Lex_error of string
@@ -38,6 +43,11 @@ let string_of_token = function
   | Times -> "*"
   | FwSlash -> "/"
   | Mod -> "%"
+  | Ampersand -> "&"
+  | Pipe -> "|"
+  | Caret -> "^"
+  | DoubleLess -> "<<"
+  | DoubleGreater -> ">>"
 
 
 let is_digit c = match c with '0' .. '9' -> true | _ -> false
@@ -82,6 +92,11 @@ let lex (s : string) : token list =
       | '*' -> go (i+1) (Times::acc)
       | '/' -> go (i+1) (FwSlash::acc)
       | '%' -> go (i+1) (Mod :: acc)
+      | '&' -> go (i+1) (Ampersand :: acc)
+      | '|' -> go (i+1) (Pipe :: acc)
+      | '^' -> go (i+1) (Caret :: acc)
+      | '<' when i + 1 < len && s.[i + 1] = '<' -> go (i + 2) (DoubleLess :: acc)
+      | '>' when i + 1 < len && s.[i + 1] = '>' -> go (i + 2) (DoubleGreater :: acc)
       | '-' when i + 1 < len && s.[i + 1] = '-' -> go (i + 2) (DoubleHyphen :: acc)
       | '-' -> go (i + 1) (Hyphen :: acc)
       | c when is_ident_start c ->
