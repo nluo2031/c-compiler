@@ -2,6 +2,13 @@ let convert_val (e:Tacky.tacky_val):Assembly.operand=
   match e with
   | Tacky.Constant n -> Assembly.Imm n
   | Tacky.Var name -> Assembly.Pseudo name
+let convert_binary (b: Tacky.binary_operator):Assembly.binary_operator=
+  match b with
+  | Tacky.Add->Assembly.Add
+  | Tacky.Subtract->Assembly.Sub
+  | Tacky.Multiply-> Assembly.Mult
+  | Tacky.Divide | Tacky.Remainder -> failwith "handled separately"
+
 let convert_unop (op : Tacky.unary_operator) : Assembly.unary_operator =
   match op with
   | Tacky.Complement -> Assembly.Not
@@ -10,6 +17,19 @@ let convert_instruction (s:Tacky.instruction):Assembly.instruction list=
   match s with
   |Tacky.Return e -> [ Assembly.Mov (convert_val e, Assembly.Reg Assembly.AX); Assembly.Ret ] 
   |Tacky.Unary (op,src,dst)-> [Assembly.Mov(convert_val src, convert_val dst);Assembly.Unary (convert_unop op, convert_val dst)] 
+  |Tacky.Binary (Tacky.Divide, src1,src2,dst)->
+    [ Assembly.Mov (convert_val src1, Assembly.Reg Assembly.AX);
+      Assembly.Cdq;
+      Assembly.Idiv (convert_val src2);
+      Assembly.Mov (Assembly.Reg Assembly.AX, convert_val dst) ]
+  |Tacky.Binary (Tacky.Remainder, src1,src2,dst)->
+    [Assembly.Mov (convert_val src1, Assembly.Reg Assembly.AX);
+    Assembly.Cdq;
+    Assembly.Idiv (convert_val src2);
+    Assembly.Mov (Assembly.Reg Assembly.DX, convert_val dst) ]
+  |Tacky.Binary (op, src1, src2, dst)->
+    [Assembly.Mov (convert_val src1, convert_val dst);
+    Assembly.Binary (convert_binary op, convert_val src2, convert_val dst)]
 
 let convert_function (f : Tacky.function_definition) : Assembly.function_definition =
   match f with
