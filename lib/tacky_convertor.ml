@@ -9,6 +9,11 @@ let convert_binop (op:Ast.binary_operator):Tacky.binary_operator=
     |Ast.Multiply->Tacky.Multiply
     |Ast.Divide->Tacky.Divide
     |Ast.Remainder->Tacky.Remainder
+    |Ast.BitwiseAnd->Tacky.BitwiseAnd
+    |Ast.BitwiseOr->Tacky.BitwiseOr
+    |Ast.BitwiseXor->Tacky.BitwiseXor
+    |Ast.LeftShift->Tacky.LeftShift
+    |Ast.RightShift->Tacky.RightShift
 let counter =ref 0
 let make_temp ():string=
   incr counter;
@@ -49,6 +54,11 @@ let pp_binop (op:Tacky.binary_operator):string=
   |Tacky.Multiply->"Multiply"
   |Tacky.Divide->"Divide"
   |Tacky.Remainder->"Remainder"
+  |Tacky.BitwiseAnd->"BitwiseAnd"
+  |Tacky.BitwiseOr->"BitwiseOr"
+  |Tacky.BitwiseXor->"BitwiseXor"
+  |Tacky.LeftShift->"LeftShift"
+  |Tacky.RightShift->"RightShift"
 let pp_val (v:Tacky.tacky_val):string=
   match v with
   |Tacky.Constant n->"Constant "^string_of_int n

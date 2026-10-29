@@ -8,8 +8,13 @@ let fix_instruction (is:Assembly.instruction):Assembly.instruction list=
   |Assembly.Idiv (Assembly.Imm n)->
     [Assembly.Mov (Assembly.Imm n, Assembly.Reg Assembly.R10);
      Assembly.Idiv (Assembly.Reg Assembly.R10)]
-  (* addl/subl can't have two memory operands, so route the source through R10 *)
-  |Assembly.Binary ((Assembly.Add|Assembly.Sub) as op, Assembly.Stack src, Assembly.Stack dst)->
+  (* shifts take their count as a constant or in %cl, so load it into CX *)
+  |Assembly.Binary ((Assembly.Sal|Assembly.Sar) as op, Assembly.Stack src, dst)->
+    [Assembly.Mov (Assembly.Stack src, Assembly.Reg Assembly.CX);
+     Assembly.Binary (op, Assembly.Reg Assembly.CX, dst)]
+  (* add/sub/and/or/xor can't have two memory operands, so route the source through R10 *)
+  |Assembly.Binary ((Assembly.Add|Assembly.Sub|Assembly.And|Assembly.Or|Assembly.Xor) as op,
+                    Assembly.Stack src, Assembly.Stack dst)->
     [Assembly.Mov (Assembly.Stack src, Assembly.Reg Assembly.R10);
      Assembly.Binary (op, Assembly.Reg Assembly.R10, Assembly.Stack dst)]
   (* imull can't write to memory, so multiply in R11 and store the result back *)

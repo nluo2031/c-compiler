@@ -1,5 +1,6 @@
 type unary_operator = Complement | Negate
 type binary_operator = Add|Subtract|Multiply|Divide|Remainder
+  |BitwiseAnd|BitwiseOr|BitwiseXor|LeftShift|RightShift
 type exp = Constant of int | Unary of unary_operator*exp|Binary of binary_operator*exp*exp
 type statement = Return of exp
 type function_definition= Function of string * statement
