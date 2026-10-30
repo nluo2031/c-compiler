@@ -21,6 +21,15 @@ type token =
   | Caret (*^*)
   | DoubleLess (*<<*)
   | DoubleGreater (*>>*)
+  | Bang (*!*)
+  | DoubleAmpersand (*&&*)
+  | DoublePipe (*||*)
+  | DoubleEqual (*==*)
+  | BangEqual (*!=*)
+  | Less (*<*)
+  | Greater (*>*)
+  | LessEqual (*<=*)
+  | GreaterEqual (*>=*)
 
 
 exception Lex_error of string
@@ -48,6 +57,15 @@ let string_of_token = function
   | Caret -> "^"
   | DoubleLess -> "<<"
   | DoubleGreater -> ">>"
+  | Bang -> "!"
+  | DoubleAmpersand -> "&&"
+  | DoublePipe -> "||"
+  | DoubleEqual -> "=="
+  | BangEqual -> "!="
+  | Less -> "<"
+  | Greater -> ">"
+  | LessEqual -> "<="
+  | GreaterEqual -> ">="
 
 
 let is_digit c = match c with '0' .. '9' -> true | _ -> false
@@ -92,11 +110,21 @@ let lex (s : string) : token list =
       | '*' -> go (i+1) (Times::acc)
       | '/' -> go (i+1) (FwSlash::acc)
       | '%' -> go (i+1) (Mod :: acc)
+      (* two-character tokens are checked before their one-character prefixes *)
+      | '&' when i + 1 < len && s.[i + 1] = '&' -> go (i + 2) (DoubleAmpersand :: acc)
       | '&' -> go (i+1) (Ampersand :: acc)
+      | '|' when i + 1 < len && s.[i + 1] = '|' -> go (i + 2) (DoublePipe :: acc)
       | '|' -> go (i+1) (Pipe :: acc)
       | '^' -> go (i+1) (Caret :: acc)
+      | '=' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (DoubleEqual :: acc)
+      | '!' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (BangEqual :: acc)
+      | '!' -> go (i + 1) (Bang :: acc)
       | '<' when i + 1 < len && s.[i + 1] = '<' -> go (i + 2) (DoubleLess :: acc)
+      | '<' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (LessEqual :: acc)
+      | '<' -> go (i + 1) (Less :: acc)
       | '>' when i + 1 < len && s.[i + 1] = '>' -> go (i + 2) (DoubleGreater :: acc)
+      | '>' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (GreaterEqual :: acc)
+      | '>' -> go (i + 1) (Greater :: acc)
       | '-' when i + 1 < len && s.[i + 1] = '-' -> go (i + 2) (DoubleHyphen :: acc)
       | '-' -> go (i + 1) (Hyphen :: acc)
       | c when is_ident_start c ->
