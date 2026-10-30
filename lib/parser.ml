@@ -14,9 +14,13 @@ let priority (token: Lexer.token): int option=
     | Lexer.Times | Lexer.FwSlash | Lexer.Mod -> Some 50
     | Lexer.Plus | Lexer.Hyphen -> Some 45
     | Lexer.DoubleLess | Lexer.DoubleGreater -> Some 40
+    | Lexer.Less | Lexer.LessEqual | Lexer.Greater | Lexer.GreaterEqual -> Some 35
+    | Lexer.DoubleEqual | Lexer.BangEqual -> Some 30
     | Lexer.Ampersand -> Some 25
     | Lexer.Caret -> Some 20
     | Lexer.Pipe -> Some 15
+    | Lexer.DoubleAmpersand -> Some 10
+    | Lexer.DoublePipe -> Some 5
     | _ -> None
 let binop_of_token (token : Lexer.token) : Ast.binary_operator =
   match token with
@@ -30,6 +34,14 @@ let binop_of_token (token : Lexer.token) : Ast.binary_operator =
   | Lexer.Caret -> Ast.BitwiseXor
   | Lexer.DoubleLess -> Ast.LeftShift
   | Lexer.DoubleGreater -> Ast.RightShift
+  | Lexer.DoubleAmpersand -> Ast.And
+  | Lexer.DoublePipe -> Ast.Or
+  | Lexer.DoubleEqual -> Ast.Equal
+  | Lexer.BangEqual -> Ast.NotEqual
+  | Lexer.Less -> Ast.LessThan
+  | Lexer.LessEqual -> Ast.LessOrEqual
+  | Lexer.Greater -> Ast.GreaterThan
+  | Lexer.GreaterEqual -> Ast.GreaterOrEqual
   | _ -> raise (Parse_error "expected arithmetic")
 
 
@@ -47,6 +59,7 @@ let rec parse_factor (tokens:Lexer.token list ref) : Ast.exp=
       | Lexer.Constant n -> Ast.Constant n
       | Lexer.Tilde -> Ast.Unary(Ast.Complement, parse_factor tokens)
       |Lexer.Hyphen -> Ast.Unary(Ast.Negate, parse_factor tokens)
+      | Lexer.Bang -> Ast.Unary(Ast.Not, parse_factor tokens)
       | Lexer.OpenParen ->
           let inner = parse_exp tokens 0 in
           expect Lexer.CloseParen tokens;
@@ -126,7 +139,7 @@ let rec pp_exp (level : int) (e : Ast.exp) : string =
   match e with
   | Ast.Constant n -> Printf.sprintf "Constant(%d)" n
   | Ast.Unary (op, inner) ->
-      let op_name = match op with Ast.Complement -> "Complement" | Ast.Negate -> "Negate" in
+      let op_name = match op with Ast.Complement -> "Complement" | Ast.Negate -> "Negate" | Ast.Not -> "Not" in
       Printf.sprintf "Unary(%s, %s)" op_name (pp_exp level inner)
   | Ast.Binary (op, left, right) ->
       let op_name =
@@ -141,6 +154,14 @@ let rec pp_exp (level : int) (e : Ast.exp) : string =
         | Ast.BitwiseXor -> "BitwiseXor"
         | Ast.LeftShift -> "LeftShift"
         | Ast.RightShift -> "RightShift"
+        | Ast.And -> "And"
+        | Ast.Or -> "Or"
+        | Ast.Equal -> "Equal"
+        | Ast.NotEqual -> "NotEqual"
+        | Ast.LessThan -> "LessThan"
+        | Ast.LessOrEqual -> "LessOrEqual"
+        | Ast.GreaterThan -> "GreaterThan"
+        | Ast.GreaterOrEqual -> "GreaterOrEqual"
       in
       Printf.sprintf "Binary(%s, %s, %s)" op_name (pp_exp level left) (pp_exp level right)
 
