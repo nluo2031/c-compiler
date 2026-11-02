@@ -14,7 +14,7 @@ let convert_binary (b: Tacky.binary_operator):Assembly.binary_operator=
   | Tacky.RightShift -> Assembly.Sar
   | Tacky.Divide | Tacky.Remainder -> failwith "handled separately"
   | Tacky.Equal | Tacky.NotEqual | Tacky.LessThan | Tacky.LessOrEqual
-  | Tacky.GreaterThan | Tacky.GreaterOrEqual -> failwith "TODO chapter 4: comparisons"
+  | Tacky.GreaterThan | Tacky.GreaterOrEqual -> failwith "handled separately"
 
 let convert_cond (b: Tacky.binary_operator):Assembly.cond_code=
   match b with
@@ -33,8 +33,15 @@ let convert_unop (op : Tacky.unary_operator) : Assembly.unary_operator =
   | Tacky.Not -> failwith "TODO chapter 4: logical not"
 let convert_instruction (s:Tacky.instruction):Assembly.instruction list=
   match s with
-  |Tacky.Return e -> [ Assembly.Mov (convert_val e, Assembly.Reg Assembly.AX); Assembly.Ret ] 
-  |Tacky.Unary (op,src,dst)-> [Assembly.Mov(convert_val src, convert_val dst);Assembly.Unary (convert_unop op, convert_val dst)] 
+  |Tacky.Return e -> [ Assembly.Mov (convert_val e, Assembly.Reg Assembly.AX); Assembly.Ret ]
+  |Tacky.Unary(Tacky.Not,src,dst)->
+    [Assembly.Cmp(Assembly.Imm 0, convert_val src);
+    Assembly.Mov(Assembly.Imm 0, convert_val dst);
+    Assembly.SetCC(Assembly.E, convert_val dst);
+    ]
+  |Tacky.Unary (op,src,dst)-> 
+    [Assembly.Mov(convert_val src, convert_val dst);
+    Assembly.Unary (convert_unop op, convert_val dst)] 
   |Tacky.Binary (Tacky.Divide, src1,src2,dst)->
     [ Assembly.Mov (convert_val src1, Assembly.Reg Assembly.AX);
       Assembly.Cdq;
@@ -45,12 +52,27 @@ let convert_instruction (s:Tacky.instruction):Assembly.instruction list=
     Assembly.Cdq;
     Assembly.Idiv (convert_val src2);
     Assembly.Mov (Assembly.Reg Assembly.DX, convert_val dst) ]
+   |Tacky.Binary ((Tacky.Equal|Tacky.NotEqual|Tacky.LessThan|Tacky.LessOrEqual|Tacky.GreaterThan|Tacky.GreaterOrEqual) as op, src1, src2, dst)->
+    [
+      Assembly.Cmp (convert_val src2, convert_val src1);
+      Assembly.Mov (Assembly.Imm 0, convert_val dst);
+      Assembly.SetCC(convert_cond op, convert_val dst);
+    ]
   |Tacky.Binary (op, src1, src2, dst)->
     [Assembly.Mov (convert_val src1, convert_val dst);
     Assembly.Binary (convert_binary op, convert_val src2, convert_val dst)]
   |Tacky.Copy (src,dst)->[Assembly.Mov (convert_val src, convert_val dst)]
-  |Tacky.Jump _|Tacky.JumpIfZero _|Tacky.JumpIfNotZero _|Tacky.Label _->
-    failwith "TODO chapter 4: jumps and labels"
+  |Tacky.Jump t->
+    [Assembly.Jmp t]
+  |Tacky.JumpIfZero (v,target)->
+    [Assembly.Cmp(Assembly.Imm 0,convert_val v);
+    Assembly.JmpCC(Assembly.E,target)]
+  |Tacky.JumpIfNotZero (v,target)->
+    [Assembly.Cmp(Assembly.Imm 0, convert_val v);
+    Assembly.JmpCC(Assembly.NE,target)
+    ]
+  |Tacky.Label(l) ->
+    [Assembly.Label l]
 
 let convert_function (f : Tacky.function_definition) : Assembly.function_definition =
   match f with

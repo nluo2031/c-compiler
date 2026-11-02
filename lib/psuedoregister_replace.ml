@@ -19,6 +19,11 @@ let replace_instruction(is:Assembly.instruction):Assembly.instruction=
   |Assembly.Binary(bin,src,dst)->Assembly.Binary(bin,replace_operand src,replace_operand dst)
   |Assembly.Idiv op->Assembly.Idiv (replace_operand op)
   |Assembly.Cdq->Assembly.Cdq
+  |Assembly.Cmp(a,b)->Assembly.Cmp(replace_operand a, replace_operand b)
+  |Assembly.SetCC(cc,op)->Assembly.SetCC(cc, replace_operand op)
+  |Assembly.Jmp(a)->Assembly.Jmp(a)
+  |Assembly.JmpCC(a,b)->Assembly.JmpCC(a,b)
+  |Assembly.Label(a)->Assembly.Label(a)
   |Assembly.AllocateStack n->Assembly.AllocateStack n
   |Assembly.Ret->Assembly.Ret
 

@@ -4,24 +4,26 @@ let fix_instruction (is:Assembly.instruction):Assembly.instruction list=
   |Assembly.Mov (Assembly.Stack src, Assembly.Stack dst)->
     [Assembly.Mov (Assembly.Stack src, Assembly.Reg Assembly.R10);
      Assembly.Mov (Assembly.Reg Assembly.R10, Assembly.Stack dst)]
-  (* idivl can't take a constant operand *)
   |Assembly.Idiv (Assembly.Imm n)->
     [Assembly.Mov (Assembly.Imm n, Assembly.Reg Assembly.R10);
      Assembly.Idiv (Assembly.Reg Assembly.R10)]
-  (* shifts take their count as a constant or in %cl, so load it into CX *)
   |Assembly.Binary ((Assembly.Sal|Assembly.Sar) as op, Assembly.Stack src, dst)->
     [Assembly.Mov (Assembly.Stack src, Assembly.Reg Assembly.CX);
      Assembly.Binary (op, Assembly.Reg Assembly.CX, dst)]
-  (* add/sub/and/or/xor can't have two memory operands, so route the source through R10 *)
   |Assembly.Binary ((Assembly.Add|Assembly.Sub|Assembly.And|Assembly.Or|Assembly.Xor) as op,
                     Assembly.Stack src, Assembly.Stack dst)->
     [Assembly.Mov (Assembly.Stack src, Assembly.Reg Assembly.R10);
      Assembly.Binary (op, Assembly.Reg Assembly.R10, Assembly.Stack dst)]
-  (* imull can't write to memory, so multiply in R11 and store the result back *)
   |Assembly.Binary (Assembly.Mult, src, Assembly.Stack dst)->
     [Assembly.Mov (Assembly.Stack dst, Assembly.Reg Assembly.R11);
      Assembly.Binary (Assembly.Mult, src, Assembly.Reg Assembly.R11);
      Assembly.Mov (Assembly.Reg Assembly.R11, Assembly.Stack dst)]
+  |Assembly.Cmp (Assembly.Stack a, Assembly.Stack b)->
+    [Assembly.Mov (Assembly.Stack a, Assembly.Reg Assembly.R10);
+     Assembly.Cmp (Assembly.Reg Assembly.R10, Assembly.Stack b)]
+  |Assembly.Cmp (a, Assembly.Imm n)->
+    [Assembly.Mov (Assembly.Imm n, Assembly.Reg Assembly.R11);
+     Assembly.Cmp (a, Assembly.Reg Assembly.R11)]
   |other->[other]
 
 (* stack_size is the last offset from Replace_pseudos, e.g. -8 *)
