@@ -13,6 +13,29 @@ let emit_operand (op : Assembly.operand) : string =
   | Assembly.Pseudo name ->
       failwith ("pseudoregister " ^ name ^ " should have been replaced")
 
+(* setcc writes a single byte, so registers need their 1-byte names *)
+let emit_byte_operand (op : Assembly.operand) : string =
+  match op with
+  | Assembly.Reg Assembly.AX -> "%al"
+  | Assembly.Reg Assembly.CX -> "%cl"
+  | Assembly.Reg Assembly.DX -> "%dl"
+  | Assembly.Reg Assembly.R10 -> "%r10b"
+  | Assembly.Reg Assembly.R11 -> "%r11b"
+  | other -> emit_operand other
+
+(* local labels need a platform prefix so they don't clash with function names *)
+let local_label (macos : bool) (name : string) : string =
+  if macos then "L" ^ name else ".L" ^ name
+
+let cc_suffix (cc : Assembly.cond_code) : string =
+  match cc with
+  | Assembly.E -> "e"
+  | Assembly.NE -> "ne"
+  | Assembly.G -> "g"
+  | Assembly.GE -> "ge"
+  | Assembly.L -> "l"
+  | Assembly.LE -> "le"
+
 let emit_unop (op : Assembly.unary_operator) : string =
   match op with
   | Assembly.Neg -> "negl"
@@ -29,7 +52,7 @@ let emit_binop (op : Assembly.binary_operator) : string =
   | Assembly.Sal -> "sall"
   | Assembly.Sar -> "sarl"
 
-let emit_instruction (i : Assembly.instruction) : string =
+let emit_instruction (macos : bool) (i : Assembly.instruction) : string =
   match i with
   | Assembly.Mov (src, dst) ->
       Printf.sprintf "\tmovl\t%s, %s\n" (emit_operand src) (emit_operand dst)
@@ -45,6 +68,14 @@ let emit_instruction (i : Assembly.instruction) : string =
   | Assembly.AllocateStack n -> Printf.sprintf "\tsubq\t$%d, %%rsp\n" n
   (* epilogue: tear down the stack frame before returning *)
   | Assembly.Ret -> "\tmovq\t%rbp, %rsp\n\tpopq\t%rbp\n\tret\n"
+  | Assembly.Cmp (a, b) ->
+      Printf.sprintf "\tcmpl\t%s, %s\n" (emit_operand a) (emit_operand b)
+  | Assembly.Jmp target -> Printf.sprintf "\tjmp\t%s\n" (local_label macos target)
+  | Assembly.JmpCC (cc, target) ->
+      Printf.sprintf "\tj%s\t%s\n" (cc_suffix cc) (local_label macos target)
+  | Assembly.SetCC (cc, operand) ->
+      Printf.sprintf "\tset%s\t%s\n" (cc_suffix cc) (emit_byte_operand operand)
+  | Assembly.Label name -> Printf.sprintf "%s:\n" (local_label macos name)
 
 let emit_function (macos : bool) (f : Assembly.function_definition) : string =
   match f with
@@ -53,7 +84,7 @@ let emit_function (macos : bool) (f : Assembly.function_definition) : string =
       (* prologue: set up the stack frame so Stack offsets are relative to rbp *)
       Printf.sprintf "\t.globl %s\n%s:\n\tpushq\t%%rbp\n\tmovq\t%%rsp, %%rbp\n%s"
         label label
-        (String.concat "" (List.map emit_instruction instructions))
+        (String.concat "" (List.map (emit_instruction macos) instructions))
 
 let emit_program (macos : bool) (p : Assembly.program) : string =
   match p with

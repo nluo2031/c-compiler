@@ -26,7 +26,7 @@ let counter =ref 0
 let make_temp ():string=
   incr counter;
   "tmp."^string_of_int !counter
-(* labels share the counter with temps, so every name is unique *)
+
 let make_label (prefix:string):string=
   incr counter;
   prefix^"."^string_of_int !counter
