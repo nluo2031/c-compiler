@@ -33,6 +33,26 @@ let make_label (prefix:string):string=
 let rec expression_conversion (exp:Ast.exp):Tacky.instruction list*Tacky.tacky_val=
   match exp with
   |Ast.Constant n->([],Tacky.Constant n)
+  |Ast.Var name->([],Tacky.Var name)
+  |Ast.Assignment (Ast.Var name,right)->
+    let (right_instrs, result) = expression_conversion right in
+    let dst = Tacky.Var name in
+    (right_instrs @ [Tacky.Copy (result, dst)], dst)
+  |Ast.Assignment _->failwith "invalid lvalue, should be rejected by semantic analysis"
+  (* only the chosen clause may run, so each one gets its own branch *)
+  |Ast.Conditional (condition,e1,e2)->
+    let (condition_instrs, c) = expression_conversion condition in
+    let (e1_instrs, v1) = expression_conversion e1 in
+    let (e2_instrs, v2) = expression_conversion e2 in
+    let e2_label = make_label "conditional_e2" in
+    let end_label = make_label "conditional_end" in
+    let dst = Tacky.Var (make_temp ()) in
+    (condition_instrs @ [Tacky.JumpIfZero (c, e2_label)]
+     @ e1_instrs @ [Tacky.Copy (v1, dst);
+       Tacky.Jump end_label;
+       Tacky.Label e2_label]
+     @ e2_instrs @ [Tacky.Copy (v2, dst);
+       Tacky.Label end_label], dst)
   |Ast.Unary (op,inner)-> 
     let (inner_instrs, src) = expression_conversion inner in
     let dst = Tacky.Var (make_temp ()) in
@@ -72,15 +92,49 @@ let rec expression_conversion (exp:Ast.exp):Tacky.instruction list*Tacky.tacky_v
     let dst = Tacky.Var (make_temp ()) in
     (left_instrs @ right_instrs @ [Tacky.Binary (convert_binop op, src1, src2, dst)], dst)
 
-let statement_conversion (stmt:Ast.statement):Tacky.instruction list=
+let rec statement_conversion (stmt:Ast.statement):Tacky.instruction list=
   match stmt with
   |Ast.Return e->
     let (instrs, result) = expression_conversion e in
     instrs @ [Tacky.Return result]
+  |Ast.Expression e->
+    let (instrs, _) = expression_conversion e in
+    instrs
+  |Ast.If (condition,then_branch,None)->
+    let (condition_instrs, c) = expression_conversion condition in
+    let end_label = make_label "if_end" in
+    condition_instrs @ [Tacky.JumpIfZero (c, end_label)]
+    @ statement_conversion then_branch @ [Tacky.Label end_label]
+  |Ast.If (condition,then_branch,Some else_branch)->
+    let (condition_instrs, c) = expression_conversion condition in
+    let else_label = make_label "if_else" in
+    let end_label = make_label "if_end" in
+    condition_instrs @ [Tacky.JumpIfZero (c, else_label)]
+    @ statement_conversion then_branch
+    @ [Tacky.Jump end_label; Tacky.Label else_label]
+    @ statement_conversion else_branch @ [Tacky.Label end_label]
+  |Ast.Null->[]
+
+(* a declaration only produces code if it has an initializer *)
+let declaration_conversion (decl:Ast.declaration):Tacky.instruction list=
+  match decl with
+  |Ast.Declaration (_, None)->[]
+  |Ast.Declaration (name, Some init)->
+    let (instrs, _) = expression_conversion (Ast.Assignment (Ast.Var name, init)) in
+    instrs
+
+let block_item_conversion (item:Ast.block_item):Tacky.instruction list=
+  match item with
+  |Ast.S stmt->statement_conversion stmt
+  |Ast.D decl->declaration_conversion decl
+
 let program_conversion (prog:Ast.program):Tacky.program=
   match prog with
   |Ast.Program (Ast.Function (name, body))->
-    Tacky.Program (Tacky.Function (name, statement_conversion body))
+    (* main returns 0 if control reaches its end; if the body already returned,
+       this extra Return is just never executed *)
+    let instrs = List.concat_map block_item_conversion body in
+    Tacky.Program (Tacky.Function (name, instrs @ [Tacky.Return (Tacky.Constant 0)]))
 
 (* ---------- Pretty-printer ---------- *)
 let pp_operator (op:Tacky.unary_operator):string=

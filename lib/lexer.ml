@@ -4,6 +4,8 @@ type token =
   | KwInt (* int *)
   | KwVoid (* void *)
   | KwReturn (* return *)
+  | KwIf (* if *)
+  | KwElse (* else *)
   | OpenParen (* ( *)
   | CloseParen (* ) *)
   | OpenBrace (* { *)
@@ -30,6 +32,9 @@ type token =
   | Greater (*>*)
   | LessEqual (*<=*)
   | GreaterEqual (*>=*)
+  | Equal (*=*)
+  | Question (*?*)
+  | Colon (*:*)
 
 
 exception Lex_error of string
@@ -40,6 +45,8 @@ let string_of_token = function
   | KwInt -> "int"
   | KwVoid -> "void"
   | KwReturn -> "return"
+  | KwIf -> "if"
+  | KwElse -> "else"
   | OpenParen -> "("
   | CloseParen -> ")"
   | OpenBrace -> "{"
@@ -66,6 +73,9 @@ let string_of_token = function
   | Greater -> ">"
   | LessEqual -> "<="
   | GreaterEqual -> ">="
+  | Equal -> "="
+  | Question -> "?"
+  | Colon -> ":"
 
 
 let is_digit c = match c with '0' .. '9' -> true | _ -> false
@@ -90,6 +100,8 @@ let keyword_or_identifier (word:string):token=
   | "int" -> KwInt
   | "void" -> KwVoid
   | "return" -> KwReturn
+  | "if" -> KwIf
+  | "else" -> KwElse
   | _ -> Identifier word
 
 let lex (s : string) : token list =
@@ -110,6 +122,8 @@ let lex (s : string) : token list =
       | '*' -> go (i+1) (Times::acc)
       | '/' -> go (i+1) (FwSlash::acc)
       | '%' -> go (i+1) (Mod :: acc)
+      | '?' -> go (i + 1) (Question :: acc)
+      | ':' -> go (i + 1) (Colon :: acc)
       (* two-character tokens are checked before their one-character prefixes *)
       | '&' when i + 1 < len && s.[i + 1] = '&' -> go (i + 2) (DoubleAmpersand :: acc)
       | '&' -> go (i+1) (Ampersand :: acc)
@@ -117,6 +131,7 @@ let lex (s : string) : token list =
       | '|' -> go (i+1) (Pipe :: acc)
       | '^' -> go (i+1) (Caret :: acc)
       | '=' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (DoubleEqual :: acc)
+      | '=' -> go (i + 1) (Equal :: acc)
       | '!' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (BangEqual :: acc)
       | '!' -> go (i + 1) (Bang :: acc)
       | '<' when i + 1 < len && s.[i + 1] = '<' -> go (i + 2) (DoubleLess :: acc)

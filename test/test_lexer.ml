@@ -42,6 +42,8 @@ let () =
   expect_tokens "keywords are case sensitive" "RETURN Int"
     [ Identifier "RETURN"; Identifier "Int" ];
   expect_tokens "underscore identifier" "_foo1" [ Identifier "_foo1" ];
+  expect_tokens "assignment vs equality" "a=b==c"
+    [ Identifier "a"; Equal; Identifier "b"; DoubleEqual; Identifier "c" ];
   expect_error "at sign" "int main(void) { return 0@1; }";
   expect_error "backslash" "\\";
   expect_error "backtick" "`";

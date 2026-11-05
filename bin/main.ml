@@ -1,20 +1,20 @@
 (* Compiler driver.
 
-   Usage: main.exe [--lex | --parse | --tacky | --codegen | -S] path/to/file.c
+   Usage: main.exe [--lex | --parse | --validate | --tacky | --codegen | -S] path/to/file.c
 
    Steps:
      1. Preprocess: gcc -E -P file.c -o file.i
-     2. Compile file.i -> file.s   (lexer, parser, codegen, emitter)
+     2. Compile file.i -> file.s   (lexer, parser, semantic analysis, codegen, emitter)
      3. Assemble + link: gcc file.s -o file
 
-   --lex / --parse / --tacky / --codegen stop after that stage and write no files. *)
+   --lex / --parse / --validate / --tacky / --codegen stop after that stage and write no files. *)
 
 open Compiler
 
-type stage = Lex | Parse | Tacky | Codegen | Assembly | Full
+type stage = Lex | Parse | Validate | Tacky | Codegen | Assembly | Full
 
 let usage () =
-  prerr_endline "usage: main.exe [--lex | --parse | --tacky | --codegen | -S] <file.c>";
+  prerr_endline "usage: main.exe [--lex | --parse | --validate | --tacky | --codegen | -S] <file.c>";
   exit 2
 
 let parse_args () =
@@ -25,6 +25,7 @@ let parse_args () =
         match arg with
         | "--lex" -> stage := Lex
         | "--parse" -> stage := Parse
+        | "--validate" -> stage := Validate
         | "--tacky" -> stage := Tacky
         | "--codegen" -> stage := Codegen
         | "-S" -> stage := Assembly
@@ -76,6 +77,16 @@ let () =
         exit 1
   in
   if stage = Parse then (
+    print_endline (Parser.pp_program ast);
+    exit 0);
+  let ast =
+    match Semantic_analysis.resolve_program ast with
+    | ast -> ast
+    | exception Semantic_analysis.Semantic_error msg ->
+        Printf.eprintf "semantic error: %s\n" msg;
+        exit 1
+  in
+  if stage = Validate then (
     print_endline (Parser.pp_program ast);
     exit 0);
   let tacky = Tacky_convertor.program_conversion ast in
