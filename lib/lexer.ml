@@ -6,6 +6,11 @@ type token =
   | KwReturn (* return *)
   | KwIf (* if *)
   | KwElse (* else *)
+  | KwDo (* do *)
+  | KwWhile (* while *)
+  | KwFor (* for *)
+  | KwBreak (* break *)
+  | KwContinue (* continue *)
   | OpenParen (* ( *)
   | CloseParen (* ) *)
   | OpenBrace (* { *)
@@ -35,6 +40,16 @@ type token =
   | Equal (*=*)
   | Question (*?*)
   | Colon (*:*)
+  | PlusEqual (*+=*)
+  | HyphenEqual (*-=*)
+  | TimesEqual (**=*)
+  | FwSlashEqual (*/=*)
+  | ModEqual (*%=*)
+  | AmpersandEqual (*&=*)
+  | PipeEqual (*|=*)
+  | CaretEqual (*^=*)
+  | DoubleLessEqual (*<<=*)
+  | DoubleGreaterEqual (*>>=*)
 
 
 exception Lex_error of string
@@ -47,6 +62,11 @@ let string_of_token = function
   | KwReturn -> "return"
   | KwIf -> "if"
   | KwElse -> "else"
+  | KwDo -> "do"
+  | KwWhile -> "while"
+  | KwFor -> "for"
+  | KwBreak -> "break"
+  | KwContinue -> "continue"
   | OpenParen -> "("
   | CloseParen -> ")"
   | OpenBrace -> "{"
@@ -76,6 +96,16 @@ let string_of_token = function
   | Equal -> "="
   | Question -> "?"
   | Colon -> ":"
+  | PlusEqual -> "+="
+  | HyphenEqual -> "-="
+  | TimesEqual -> "*="
+  | FwSlashEqual -> "/="
+  | ModEqual -> "%="
+  | AmpersandEqual -> "&="
+  | PipeEqual -> "|="
+  | CaretEqual -> "^="
+  | DoubleLessEqual -> "<<="
+  | DoubleGreaterEqual -> ">>="
 
 
 let is_digit c = match c with '0' .. '9' -> true | _ -> false
@@ -102,6 +132,11 @@ let keyword_or_identifier (word:string):token=
   | "return" -> KwReturn
   | "if" -> KwIf
   | "else" -> KwElse
+  | "do" -> KwDo
+  | "while" -> KwWhile
+  | "for" -> KwFor
+  | "break" -> KwBreak
+  | "continue" -> KwContinue
   | _ -> Identifier word
 
 let lex (s : string) : token list =
@@ -118,29 +153,39 @@ let lex (s : string) : token list =
       | '}' -> go (i + 1) (CloseBrace :: acc)
       | ';' -> go (i + 1) (Semicolon :: acc)
       | '~' -> go (i + 1) (Tilde :: acc)
+      | '+' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (PlusEqual :: acc)
       | '+' -> go (i+1) (Plus::acc)
+      | '*' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (TimesEqual :: acc)
       | '*' -> go (i+1) (Times::acc)
+      | '/' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (FwSlashEqual :: acc)
       | '/' -> go (i+1) (FwSlash::acc)
+      | '%' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (ModEqual :: acc)
       | '%' -> go (i+1) (Mod :: acc)
       | '?' -> go (i + 1) (Question :: acc)
       | ':' -> go (i + 1) (Colon :: acc)
       (* two-character tokens are checked before their one-character prefixes *)
       | '&' when i + 1 < len && s.[i + 1] = '&' -> go (i + 2) (DoubleAmpersand :: acc)
+      | '&' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (AmpersandEqual :: acc)
       | '&' -> go (i+1) (Ampersand :: acc)
       | '|' when i + 1 < len && s.[i + 1] = '|' -> go (i + 2) (DoublePipe :: acc)
+      | '|' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (PipeEqual :: acc)
       | '|' -> go (i+1) (Pipe :: acc)
+      | '^' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (CaretEqual :: acc)
       | '^' -> go (i+1) (Caret :: acc)
       | '=' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (DoubleEqual :: acc)
       | '=' -> go (i + 1) (Equal :: acc)
       | '!' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (BangEqual :: acc)
       | '!' -> go (i + 1) (Bang :: acc)
+      | '<' when i + 2 < len && s.[i + 1] = '<' && s.[i + 2] = '=' -> go (i + 3) (DoubleLessEqual :: acc)
       | '<' when i + 1 < len && s.[i + 1] = '<' -> go (i + 2) (DoubleLess :: acc)
       | '<' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (LessEqual :: acc)
       | '<' -> go (i + 1) (Less :: acc)
+      | '>' when i + 2 < len && s.[i + 1] = '>' && s.[i + 2] = '=' -> go (i + 3) (DoubleGreaterEqual :: acc)
       | '>' when i + 1 < len && s.[i + 1] = '>' -> go (i + 2) (DoubleGreater :: acc)
       | '>' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (GreaterEqual :: acc)
       | '>' -> go (i + 1) (Greater :: acc)
       | '-' when i + 1 < len && s.[i + 1] = '-' -> go (i + 2) (DoubleHyphen :: acc)
+      | '-' when i + 1 < len && s.[i + 1] = '=' -> go (i + 2) (HyphenEqual :: acc)
       | '-' -> go (i + 1) (Hyphen :: acc)
       | c when is_ident_start c ->
           let j = scan_while is_ident_char s i in

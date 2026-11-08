@@ -38,7 +38,12 @@ let rec expression_conversion (exp:Ast.exp):Tacky.instruction list*Tacky.tacky_v
     let (right_instrs, result) = expression_conversion right in
     let dst = Tacky.Var name in
     (right_instrs @ [Tacky.Copy (result, dst)], dst)
-  |Ast.Assignment _->failwith "invalid lvalue, should be rejected by semantic analysis"
+  (* x op= e becomes x = x op e; the result is x's new value *)
+  |Ast.CompoundAssignment (op,Ast.Var name,right)->
+    let (right_instrs, result) = expression_conversion right in
+    let dst = Tacky.Var name in
+    (right_instrs @ [Tacky.Binary (convert_binop op, dst, result, dst)], dst)
+  |Ast.Assignment _|Ast.CompoundAssignment _->failwith "invalid lvalue, should be rejected by semantic analysis"
   (* only the chosen clause may run, so each one gets its own branch *)
   |Ast.Conditional (condition,e1,e2)->
     let (condition_instrs, c) = expression_conversion condition in
@@ -92,6 +97,23 @@ let rec expression_conversion (exp:Ast.exp):Tacky.instruction list*Tacky.tacky_v
     let dst = Tacky.Var (make_temp ()) in
     (left_instrs @ right_instrs @ [Tacky.Binary (convert_binop op, src1, src2, dst)], dst)
 
+(* a declaration only produces code if it has an initializer *)
+let declaration_conversion (decl:Ast.declaration):Tacky.instruction list=
+  match decl with
+  |Ast.Declaration (_, None)->[]
+  |Ast.Declaration (name, Some init)->
+    let (instrs, _) = expression_conversion (Ast.Assignment (Ast.Var name, init)) in
+    instrs
+
+(* a loop's label gives the targets that break and continue jump to *)
+let break_label (label:string):string = "break_" ^ label
+let continue_label (label:string):string = "continue_" ^ label
+
+let opt_expression_conversion (e:Ast.exp option):Tacky.instruction list=
+  match e with
+  |None->[]
+  |Some e->fst (expression_conversion e)
+
 let rec statement_conversion (stmt:Ast.statement):Tacky.instruction list=
   match stmt with
   |Ast.Return e->
@@ -113,27 +135,62 @@ let rec statement_conversion (stmt:Ast.statement):Tacky.instruction list=
     @ statement_conversion then_branch
     @ [Tacky.Jump end_label; Tacky.Label else_label]
     @ statement_conversion else_branch @ [Tacky.Label end_label]
+  |Ast.Compound b->block_conversion b
+  |Ast.Break label->[Tacky.Jump (break_label label)]
+  |Ast.Continue label->[Tacky.Jump (continue_label label)]
+  (* the condition is tested at the bottom, so the body always runs once *)
+  |Ast.DoWhile (body,condition,label)->
+    let start = make_label "do_start" in
+    let (condition_instrs, c) = expression_conversion condition in
+    [Tacky.Label start] @ statement_conversion body
+    @ [Tacky.Label (continue_label label)]
+    @ condition_instrs
+    @ [Tacky.JumpIfNotZero (c, start); Tacky.Label (break_label label)]
+  (* continue re-tests the condition, so it can share the loop's top label *)
+  |Ast.While (condition,body,label)->
+    let (condition_instrs, c) = expression_conversion condition in
+    [Tacky.Label (continue_label label)] @ condition_instrs
+    @ [Tacky.JumpIfZero (c, break_label label)]
+    @ statement_conversion body
+    @ [Tacky.Jump (continue_label label); Tacky.Label (break_label label)]
+  (* continue must still run the post expression, so it lands just before it *)
+  |Ast.For (init,condition,post,body,label)->
+    let start = make_label "for_start" in
+    let init_instrs =
+      match init with
+      |Ast.InitDecl d->declaration_conversion d
+      |Ast.InitExp e->opt_expression_conversion e
+    in
+    (* a missing condition means loop forever *)
+    let condition_instrs =
+      match condition with
+      |None->[]
+      |Some condition->
+        let (instrs, c) = expression_conversion condition in
+        instrs @ [Tacky.JumpIfZero (c, break_label label)]
+    in
+    init_instrs @ [Tacky.Label start] @ condition_instrs
+    @ statement_conversion body
+    @ [Tacky.Label (continue_label label)]
+    @ opt_expression_conversion post
+    @ [Tacky.Jump start; Tacky.Label (break_label label)]
   |Ast.Null->[]
 
-(* a declaration only produces code if it has an initializer *)
-let declaration_conversion (decl:Ast.declaration):Tacky.instruction list=
-  match decl with
-  |Ast.Declaration (_, None)->[]
-  |Ast.Declaration (name, Some init)->
-    let (instrs, _) = expression_conversion (Ast.Assignment (Ast.Var name, init)) in
-    instrs
-
-let block_item_conversion (item:Ast.block_item):Tacky.instruction list=
+and block_item_conversion (item:Ast.block_item):Tacky.instruction list=
   match item with
   |Ast.S stmt->statement_conversion stmt
   |Ast.D decl->declaration_conversion decl
+
+and block_conversion (b:Ast.block):Tacky.instruction list=
+  match b with
+  |Ast.Block items->List.concat_map block_item_conversion items
 
 let program_conversion (prog:Ast.program):Tacky.program=
   match prog with
   |Ast.Program (Ast.Function (name, body))->
     (* main returns 0 if control reaches its end; if the body already returned,
        this extra Return is just never executed *)
-    let instrs = List.concat_map block_item_conversion body in
+    let instrs = block_conversion body in
     Tacky.Program (Tacky.Function (name, instrs @ [Tacky.Return (Tacky.Constant 0)]))
 
 (* ---------- Pretty-printer ---------- *)

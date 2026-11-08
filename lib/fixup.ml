@@ -11,7 +11,7 @@ let fix_instruction (is:Assembly.instruction):Assembly.instruction list=
     [Assembly.Mov (Assembly.Stack src, Assembly.Reg Assembly.CX);
      Assembly.Binary (op, Assembly.Reg Assembly.CX, dst)]
   |Assembly.Binary ((Assembly.Add|Assembly.Sub|Assembly.And|Assembly.Or|Assembly.Xor) as op,
-                    Assembly.Stack src, Assembly.Stack dst)->
+  Assembly.Stack src, Assembly.Stack dst)->
     [Assembly.Mov (Assembly.Stack src, Assembly.Reg Assembly.R10);
      Assembly.Binary (op, Assembly.Reg Assembly.R10, Assembly.Stack dst)]
   |Assembly.Binary (Assembly.Mult, src, Assembly.Stack dst)->
